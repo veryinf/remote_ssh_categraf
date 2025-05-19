@@ -11,8 +11,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [linux, windows]
-        arch: [x64, arm64]
         include:
           - platform: linux
             arch: x64
@@ -23,9 +21,6 @@ jobs:
           - platform: windows
             arch: x64
             ext: windows-x64.exe
-          - platform: windows
-            arch: arm64
-            ext: windows-arm64.exe
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,14 +28,12 @@ jobs:
           fetch-depth: 0
 
       - name: Install Bun
-        run: |
-          curl -fsSL https://bun.sh/install | bash
-          export PATH="$HOME/.bun/bin:$PATH"
-        shell: shell
+        run: npm install -g bun
+        shell: bash
 
       - name: Verify Bun installation
         run: bun --version
-        shell: shell
+        shell: bash
 
       - name: Install dependencies
         run: bun install
@@ -48,7 +41,7 @@ jobs:
       - name: Build for ${{ matrix.platform }}/${{ matrix.arch }}
         run: |
           bun build --minify --compile remote-ssh.ts \
-            --target ${{ matrix.platform }}-${{ matrix.arch }} \
+            --target bun-${{ matrix.platform }}-${{ matrix.arch }} \
             --outfile dist/${{ github.ref_name }}/remote-ssh-${{ matrix.ext }}
         env:
           NODE_ENV: production
@@ -61,7 +54,7 @@ jobs:
           cd dist/${{ github.ref_name }}
 
           # 创建平台专属压缩包
-          tar czf ../../assets/remote-ssh-${{ matrix.ext }}.tar.gz \
+          tar czf ../assets/remote-ssh-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz \
             --transform 's,^,linux/,' \
             remote-ssh-${{ matrix.ext }}
         shell: bash
@@ -79,11 +72,13 @@ jobs:
           fi
 
           # 创建平台专属压缩包
-          7z a ../../assets/remote-ssh-${{ matrix.ext }}.zip remote-ssh-${{ matrix.ext }}
+          7z a ../assets/remote-ssh-${{ matrix.platform }}-${{ matrix.arch }}.zip remote-ssh-${{ matrix.ext }}
         shell: bash
 
       - name: Upload artifact
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         with:
           tag_name: ${{ github.ref_name }}
           files: dist/assets/*
